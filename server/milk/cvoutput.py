@@ -9,8 +9,11 @@ from __future__ import annotations
 import csv
 import io
 import json
+import math
 from dataclasses import dataclass
 from datetime import datetime
+
+import numpy as np
 
 CV_OUTPUT_COLUMNS = [
     "reading_id", "capture_id", "store_id", "camera_id", "capture_timestamp",
@@ -67,8 +70,11 @@ class CaptureIdAllocator:
         return CaptureStem(*key)
 
 
-def _row_confidence(detections: list[Detection]) -> float:
-    return round(sum(d.confidence for d in detections) / len(detections), 2)
+def _row_confidence(detections: list[Detection]) -> tuple[float, float]:
+    """(raw mean, stored score) as in carton_recognition/cv_output.py: the stored score is rounded
+    down to 2 decimals and the flag uses the raw mean, so a stored 0.70 is never a flagged 0.6987."""
+    raw = float(np.mean([d.confidence for d in detections]))
+    return raw, math.floor(raw * 100 + 1e-9) / 100
 
 
 def build_capture(
@@ -107,8 +113,8 @@ def build_capture(
         if sku_id is None:
             confidence, flagged, reason, name = 0.0, True, "Unrecognized", None
         else:
-            confidence = _row_confidence(dets)
-            flagged = confidence < flag_threshold
+            raw, confidence = _row_confidence(dets)
+            flagged = raw < flag_threshold
             reason = "Low Confidence" if flagged else ""
             name = dets[0].sku_name
         methods = sorted({d.method for d in dets})

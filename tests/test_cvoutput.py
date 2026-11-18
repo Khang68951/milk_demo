@@ -120,6 +120,31 @@ def test_allocator_suffixes_reset_each_second():
     assert [alloc.stem("S01", t).time for t in (t0, t0, t0, t1)] == ["170900", "170900-2", "170900-3", "170901"]
 
 
+def _one_row(confidences):
+    ts = datetime(2026, 11, 18, 18, 0, 0, tzinfo=ICT)
+    dets = [Detection("TMP-MLK-VNM-01", "x", c, (i, 0, 10, 20)) for i, c in enumerate(confidences)]
+    rows, _ = build_capture(dets, stem=CaptureIdAllocator().stem("S01", ts), store_id="DEMO-S01",
+                            camera_id="CAM-S01-A", capture_source="CCTV", ts=ts, processing_time_ms=1)
+    return rows[0]
+
+
+def test_score_is_rounded_down_and_the_flag_uses_the_raw_mean():
+    # mean 0.6995: round() would store 0.70 yet flag it; the pipeline stores 0.69 and flags it
+    row = _one_row([0.695, 0.704])
+    assert row["confidence_score"] == 0.69 and row["is_flagged"] and row["flag_reason"] == "Low Confidence"
+
+
+def test_a_mean_of_exactly_0_70_is_accepted():
+    row = _one_row([0.7, 0.7])
+    assert row["confidence_score"] == 0.7 and not row["is_flagged"] and row["flag_reason"] == ""
+
+
+def test_three_cartons_at_0_70_fall_just_below_in_floating_point_and_are_flagged():
+    # 0.7 + 0.7 + 0.7 = 2.0999999999999996 in floating point, exactly as in the pipeline's np.mean
+    row = _one_row([0.7, 0.7, 0.7])
+    assert row["confidence_score"] == 0.7 and row["is_flagged"]
+
+
 def test_counts_use_unrecognized_key():
     rows, _ = _build()
     counts = counts_of(rows)

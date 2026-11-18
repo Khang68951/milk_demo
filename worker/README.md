@@ -18,8 +18,13 @@ camera -> relay tại tiệm -> hub AWS (MediaMTX) --RTSPS--> worker máy long (
   `pip install -r server/requirements-worker.txt`.
 - File `worker.env` do hoang gửi riêng. File này chứa mật khẩu và token: không commit, không
   dán lên Confluence hay Sheet.
-- Model YuNet để che mặt: `models/face_detection_yunet_2023mar.onnx`
-  ([opencv_zoo](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)).
+- Che người trước khi lưu hoặc hiển thị, hai lớp chạy nối nhau:
+  - `MILK_PERSON_MODEL`: trọng số YOLO bản COCO gốc (ví dụ `yolo26s.pt`), che cả người. Bắt được
+    cả người nhìn từ trên xuống, trường hợp YuNet bỏ sót.
+  - `MILK_YUNET`: model YuNet `face_detection_yunet_2023mar.onnx`
+    ([opencv_zoo](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)), che mặt.
+
+  Không nạp được cả hai thì worker vẫn đếm nhưng hub không lưu ảnh nào.
 
 ## Chạy thử
 

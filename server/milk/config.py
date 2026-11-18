@@ -53,6 +53,8 @@ class Settings:
     pipeline: str
     models_dir: str
     yunet_path: str
+    person_model: str
+    device: str
     persist_every_s: float
     publish_fps: float
     max_fps: float
@@ -89,6 +91,8 @@ def load(env_file: str | None = None) -> Settings:
         pipeline=_env("MILK_PIPELINE", "null"),
         models_dir=_env("MILK_MODELS_DIR", "/opt/milk/models"),
         yunet_path=_env("MILK_YUNET", "/opt/milk/models/face_detection_yunet_2023mar.onnx"),
+        person_model=_env("MILK_PERSON_MODEL", ""),  # COCO weights, e.g. yolo26s.pt; empty = faces only
+        device=_env("MILK_DEVICE", ""),  # cuda:0, cpu, or empty for automatic
         persist_every_s=float(_env("MILK_PERSIST_EVERY_S", "10")),
         publish_fps=float(_env("MILK_PUBLISH_FPS", "3")),  # dashboard updates per second, at most
         max_fps=float(_env("MILK_MAX_FPS", "0")),  # frames counted per second, 0 = as fast as possible

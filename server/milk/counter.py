@@ -102,7 +102,7 @@ def main(argv: list[str] | None = None) -> None:
     s = config.load(args.env)
     tz = timezone(timedelta(hours=s.utc_offset_hours))
     pipeline = load_pipeline(s.pipeline, s.models_dir)
-    blurrer = load_blurrer(s.yunet_path)
+    blurrer = load_blurrer(s.yunet_path, s.person_model, s.device)
     reader = LatestFrameReader(s.stream_url, keyframes_only=(s.decode != "all"))
     reader.start()
     hub = HubClient(s.hub_url, s.internal_token)

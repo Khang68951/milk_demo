@@ -63,6 +63,7 @@ Needs AWS CLI v2 with a profile (default `milk`) and PowerShell. Nothing else on
 .\infra\remote-run.ps1 "journalctl -u milk-web -n 50 --no-pager"   # run a command on the hub (SSM)
 .\infra\server-power.ps1 -Start         # the server also stops itself at 23:00 every night
 .\infra\worker-env.ps1 -OutFile <path>  # settings for a GPU worker; contains secrets, send privately
+.\infra\switch-source.ps1 -Source camera   # count the store camera; -Source replay = recorded video (demo fallback)
 .\infra\budget.ps1 -Email you@example.com -LimitUsd 100   # alerts on real usage, credits excluded
 ```
 

@@ -12,10 +12,9 @@ After=network-online.target
 
 [Service]
 WorkingDirectory=%h/Desktop/Datagent/milk_demo/server
-ExecStart=%h/Desktop/Datagent/carton_recognition/.venv/bin/python -m milk.counter --env %h/Desktop/Datagent/milk_demo/worker.env
+# lancedb prints a deprecation warning on every lookup (several per frame); grep drops just those lines.
+ExecStart=/bin/bash -c 'set -o pipefail; %h/Desktop/Datagent/carton_recognition/.venv/bin/python -m milk.counter --env %h/Desktop/Datagent/milk_demo/worker.env 2>&1 | grep --line-buffered -v "lance::dataset::scanner"'
 Environment=PYTHONUNBUFFERED=1
-Environment=LANCE_LOG=error
-Environment=RUST_LOG=error
 Restart=always
 RestartSec=5
 Nice=10

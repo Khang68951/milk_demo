@@ -1,6 +1,25 @@
 import numpy as np
 
-from milk.privacy import ChainBlurrer, load_blurrer, pixelate
+from milk.privacy import ChainBlurrer, load_blurrer, person_regions, pixelate
+
+
+def test_a_standing_shopper_has_only_head_and_shoulders_hidden():
+    # 1080-pixel frame, person 600 pixels tall: hide the top 40%, keep the shelf below visible
+    (region,) = person_regions([(100, 200, 300, 800)], image_height=1080)
+    x0, y0, x1, y1 = region
+    assert (x0, x1) == (80, 320)
+    assert y0 == 182 and y1 == 440
+
+
+def test_a_small_box_is_hidden_whole():
+    # shorter than a quarter of the frame: often a head on its own, or someone far away
+    (region,) = person_regions([(500, 100, 560, 300)], image_height=1080)
+    assert region == (494, 80, 566, 320)
+
+
+def test_body_mode_hides_every_person_whole():
+    (region,) = person_regions([(100, 200, 300, 800)], image_height=1080, mode="body")
+    assert region == (80, 140, 320, 860)
 
 
 class Fake:

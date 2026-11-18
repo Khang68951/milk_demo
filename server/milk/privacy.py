@@ -64,14 +64,33 @@ class FaceBlurrer:
         return out, count
 
 
+def person_regions(boxes, image_height: int, mode: str = "head") -> list[tuple[int, int, int, int]]:
+    """Regions to hide for person boxes (x0, y0, x1, y1).
+
+    head: the top 40% of each person (head and shoulders), as carton_recognition's blur_people does,
+    so the shelf behind or below a shopper stays visible; a box shorter than a quarter of the image
+    (often a head alone, or someone far away) is hidden whole. body: every person box whole."""
+    regions = []
+    for x0, y0, x1, y1 in boxes:
+        w, h = x1 - x0, y1 - y0
+        if mode == "body" or h < 0.25 * image_height:
+            regions.append((x0 - 0.1 * w, y0 - 0.1 * h, x1 + 0.1 * w, y1 + 0.1 * h))
+        else:
+            regions.append((x0 - 0.1 * w, y0 - 0.03 * h, x1 + 0.1 * w, y0 + 0.40 * h))
+    return [tuple(int(round(v)) for v in r) for r in regions]
+
+
 class PersonBlurrer:
-    def __init__(self, model_path: str, conf: float = 0.35, imgsz: int = 1280, device: str | None = None) -> None:
+    def __init__(self, model_path: str, conf: float = 0.25, imgsz: int = 1280, device: str | None = None,
+                 mode: str = "head") -> None:
         from ultralytics import YOLO  # only on machines that run the model
 
         if not Path(model_path).is_file():
             raise FileNotFoundError(model_path)
+        if mode not in ("head", "body"):
+            raise ValueError(f"person blur mode must be head or body, not {mode!r}")
         self._model = YOLO(model_path)
-        self._conf, self._imgsz, self._device = conf, imgsz, device or None
+        self._conf, self._imgsz, self._device, self._mode = conf, imgsz, device or None, mode
 
     def blur(self, image: np.ndarray) -> tuple[np.ndarray, int]:
         result = self._model.predict(image, classes=[0], conf=self._conf, imgsz=self._imgsz,
@@ -81,9 +100,8 @@ class PersonBlurrer:
             return image, 0
         out = image.copy()
         count = 0
-        for x0, y0, x1, y1 in boxes:
-            pad = 0.05 * (y1 - y0)
-            if pixelate(out, int(x0 - pad), int(y0 - pad), int(x1 + pad), int(y1 + pad), blocks=8):
+        for x0, y0, x1, y1 in person_regions(boxes, image.shape[0], self._mode):
+            if pixelate(out, x0, y0, x1, y1, blocks=8):
                 count += 1
         return out, count
 
@@ -102,13 +120,14 @@ class ChainBlurrer:
         return image, total
 
 
-def load_blurrer(face_model: str, person_model: str | None = None, device: str | None = None) -> ChainBlurrer | None:
+def load_blurrer(face_model: str, person_model: str | None = None, device: str | None = None,
+                 person_mode: str = "head") -> ChainBlurrer | None:
     """Every blurrer that can load. None only if none can: then nothing is stored."""
     blurrers = []
     if person_model:
         try:
-            blurrers.append(PersonBlurrer(person_model, device=device))
-            log.info("person blurring on (%s)", person_model)
+            blurrers.append(PersonBlurrer(person_model, device=device, mode=person_mode))
+            log.info("person blurring on (%s, %s)", person_model, person_mode)
         except Exception as exc:  # noqa: BLE001
             log.warning("person blurring unavailable (%s); faces only", exc)
     try:

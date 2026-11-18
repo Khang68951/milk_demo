@@ -1,20 +1,26 @@
-# systemd user unit for the counting worker on a GPU machine.
-# Copy to ~/.config/systemd/user/milk-worker.service, edit the two paths, then:
+# systemd user unit for the counting worker on the team GPU machine (Long's).
+# Paths follow that machine: the repo is in ~/Desktop/Datagent/milk_demo and the model's
+# environment is carton_recognition/.venv. Install and run:
+#   cp worker/milk-worker.service ~/.config/systemd/user/
 #   systemctl --user daemon-reload && systemctl --user enable --now milk-worker
 #   journalctl --user -u milk-worker -f
+#   systemctl --user stop milk-worker        # stop when not needed: the stream costs AWS egress
 [Unit]
 Description=Milk counting worker (reads the stream from the hub, counts on the GPU)
 Wants=network-online.target
 After=network-online.target
 
 [Service]
-# Folder of the cloned repository, and the Python of the environment that runs the model.
-WorkingDirectory=%h/milk-camera/server
-ExecStart=%h/milk-camera/.venv/bin/python -m milk.counter --env %h/milk-camera/worker.env
+WorkingDirectory=%h/Desktop/Datagent/milk_demo/server
+ExecStart=%h/Desktop/Datagent/carton_recognition/.venv/bin/python -m milk.counter --env %h/Desktop/Datagent/milk_demo/worker.env
+Environment=PYTHONUNBUFFERED=1
+Environment=LANCE_LOG=error
+Environment=RUST_LOG=error
 Restart=always
 RestartSec=5
 Nice=10
 MemoryMax=12G
+CPUQuota=800%
 
 [Install]
 WantedBy=default.target

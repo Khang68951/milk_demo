@@ -1,0 +1,5 @@
+# Counting worker on a GPU machine (for example Long's). Install into the environment that
+# already runs the model (torch, ultralytics, lancedb). Skip opencv if cv2 is already there.
+# The system ffmpeg and ffprobe must be on PATH (apt install ffmpeg).
+numpy>=1.26,<3
+opencv-python-headless>=4.9,<5

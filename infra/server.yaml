@@ -1,0 +1,261 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Milk shelf demo, server: one EC2 instance running MediaMTX (stream ingest), the
+  counter and the dashboard, with an Elastic IP for a fixed ingest endpoint, CloudFront
+  for HTTPS, and a schedule that stops the instance every night.
+
+Parameters:
+  Project:
+    Type: String
+    Default: milk-demo
+  BucketName:
+    Type: String
+  TableName:
+    Type: String
+  InstanceType:
+    Type: String
+    Default: t3.small
+    Description: t3.small is enough when counting runs on a GPU worker elsewhere.
+    AllowedValues: [t3.small, t3.medium, c7i.xlarge, c7i-flex.xlarge, c7i.2xlarge, m7i-flex.xlarge, t3.xlarge, g4dn.xlarge, g4dn.2xlarge]
+  ImageId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
+  RootVolumeGiB:
+    Type: Number
+    Default: 60
+  ReleaseKey:
+    Type: String
+    Default: releases/current.tar.gz
+  SsmPrefix:
+    Type: String
+    Default: /milk-demo
+  CloudFrontPrefixListId:
+    Type: String
+    Description: Managed prefix list com.amazonaws.global.cloudfront.origin-facing in this region.
+  OriginSecret:
+    Type: String
+    NoEcho: true
+    Description: Header value CloudFront sends so the server can refuse direct requests.
+  AutoStopCron:
+    Type: String
+    Default: cron(0 23 * * ? *)
+
+Resources:
+  ServerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: milk-demo-data
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !Sub arn:${AWS::Partition}:s3:::${BucketName}
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject]
+                Resource: !Sub arn:${AWS::Partition}:s3:::${BucketName}/*
+              - Effect: Allow
+                Action: [dynamodb:PutItem, dynamodb:GetItem, dynamodb:Query, dynamodb:BatchWriteItem]
+                Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${TableName}
+              - Effect: Allow
+                Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath]
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${SsmPrefix}/*
+              - Effect: Allow
+                Action: kms:Decrypt
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
+      Tags:
+        - Key: project
+          Value: !Ref Project
+
+  ServerProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref ServerRole]
+
+  ServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: milk-demo server - RTSPS and SRT from stores, HTTP only from CloudFront
+      SecurityGroupIngress:
+        - Description: RTSPS ingest from the store relay
+          IpProtocol: tcp
+          FromPort: 8322
+          ToPort: 8322
+          CidrIp: 0.0.0.0/0
+        - Description: SRT ingest from the store relay
+          IpProtocol: udp
+          FromPort: 8890
+          ToPort: 8890
+          CidrIp: 0.0.0.0/0
+        - Description: Dashboard, only through CloudFront
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourcePrefixListId: !Ref CloudFrontPrefixListId
+      Tags:
+        - Key: project
+          Value: !Ref Project
+
+  ServerLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        MetadataOptions:
+          HttpEndpoint: enabled
+          HttpTokens: required
+          HttpPutResponseHopLimit: 2
+        TagSpecifications:
+          - ResourceType: volume
+            Tags:
+              - Key: project
+                Value: !Ref Project
+
+  Server:
+    Type: AWS::EC2::Instance
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref ServerLaunchTemplate
+        Version: !GetAtt ServerLaunchTemplate.LatestVersionNumber
+      ImageId: !Ref ImageId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref ServerProfile
+      SecurityGroupIds: [!GetAtt ServerSecurityGroup.GroupId]
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: !Ref RootVolumeGiB
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euo pipefail
+          exec > >(tee -a /var/log/milk-bootstrap.log) 2>&1
+          echo "milk bootstrap start $(date -Is)"
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -y
+          apt-get install -y --no-install-recommends python3-venv python3-dev build-essential ffmpeg curl jq openssl ca-certificates
+          command -v aws >/dev/null 2>&1 || snap install aws-cli --classic
+          export PATH="$PATH:/snap/bin"
+          mkdir -p /etc/milk
+          cat > /etc/milk/deploy.env <<EOF
+          MILK_REGION=${AWS::Region}
+          MILK_BUCKET=${BucketName}
+          MILK_TABLE=${TableName}
+          MILK_RELEASE_KEY=${ReleaseKey}
+          MILK_SSM_PREFIX=${SsmPrefix}
+          EOF
+          for attempt in $(seq 1 40); do
+            if aws s3 cp "s3://${BucketName}/${ReleaseKey}" /tmp/milk-release.tar.gz --region ${AWS::Region} --only-show-errors; then break; fi
+            echo "release not in S3 yet, attempt $attempt"; sleep 15
+          done
+          mkdir -p /opt/milk/app
+          tar -xzf /tmp/milk-release.tar.gz -C /opt/milk/app
+          bash /opt/milk/app/infra/remote/install.sh
+          echo "milk bootstrap done $(date -Is)"
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-server
+        - Key: project
+          Value: !Ref Project
+
+  ServerEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref Server
+      Tags:
+        - Key: project
+          Value: !Ref Project
+
+  Dashboard:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub ${Project} dashboard
+        HttpVersion: http2and3
+        PriceClass: PriceClass_200
+        Origins:
+          - Id: server
+            DomainName: !Sub
+              - ec2-${Dashed}.${AWS::Region}.compute.amazonaws.com
+              - Dashed: !Join ["-", !Split [".", !Ref ServerEIP]]
+            CustomOriginConfig:
+              HTTPPort: 80
+              OriginProtocolPolicy: http-only
+              OriginReadTimeout: 60
+              OriginKeepaliveTimeout: 5
+            OriginCustomHeaders:
+              - HeaderName: X-Origin-Verify
+                HeaderValue: !Ref OriginSecret
+        DefaultCacheBehavior:
+          TargetOriginId: server
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # Managed-CachingDisabled
+          OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac # Managed-AllViewerExceptHostHeader
+      Tags:
+        - Key: project
+          Value: !Ref Project
+
+  StopScheduleRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: scheduler.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: stop-demo-server
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ec2:StopInstances
+                Resource: !Sub arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${Server}
+
+  StopSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Description: Stop the demo server every night so it is never left running by mistake
+      ScheduleExpression: !Ref AutoStopCron
+      ScheduleExpressionTimezone: Asia/Ho_Chi_Minh
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      Target:
+        Arn: arn:aws:scheduler:::aws-sdk:ec2:stopInstances
+        RoleArn: !GetAtt StopScheduleRole.Arn
+        Input: !Sub '{"InstanceIds": ["${Server}"]}'
+
+Outputs:
+  InstanceId:
+    Value: !Ref Server
+  IngestIp:
+    Description: Fixed public IP for the store relay
+    Value: !Ref ServerEIP
+  DashboardUrl:
+    Value: !Sub https://${Dashboard.DomainName}
+  RtspsTemplate:
+    Description: Publish URL for the store relay; user and password are in SSM
+    Value: !Sub rtsps://USER:PASS@${ServerEIP}:8322/cam-s01-a
+  SrtTemplate:
+    Description: SRT publish URL; user, password and passphrase are in SSM
+    Value: !Sub srt://${ServerEIP}:8890?streamid=publish:cam-s01-a:USER:PASS&passphrase=PASSPHRASE&pkt_size=1316

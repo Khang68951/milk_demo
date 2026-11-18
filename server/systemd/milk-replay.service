@@ -1,0 +1,11 @@
+[Unit]
+Description=Test source: replays a recorded video as a live stream on path cam-replay
+Requires=mediamtx.service
+After=mediamtx.service
+
+[Service]
+User=milk
+Group=milk
+ExecStart=/usr/bin/ffmpeg -hide_banner -loglevel warning -re -stream_loop -1 -i /opt/milk/data/replay.mp4 -map 0:v:0 -c copy -f rtsp -rtsp_transport tcp rtsp://127.0.0.1:8554/cam-replay
+Restart=always
+RestartSec=3

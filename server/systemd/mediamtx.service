@@ -1,0 +1,15 @@
+[Unit]
+Description=MediaMTX stream ingest (RTSPS and SRT from the store)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=milk
+Group=milk
+ExecStart=/usr/local/bin/mediamtx /etc/mediamtx/mediamtx.yml
+Restart=always
+RestartSec=2
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

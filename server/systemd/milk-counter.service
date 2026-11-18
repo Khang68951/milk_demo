@@ -1,0 +1,17 @@
+[Unit]
+Description=Milk counter: newest stream frame -> model -> results
+Wants=mediamtx.service milk-web.service
+After=mediamtx.service milk-web.service
+
+[Service]
+User=milk
+Group=milk
+EnvironmentFile=/etc/milk/milk.env
+WorkingDirectory=/opt/milk/app/server
+ExecStart=/opt/milk/venv/bin/python -m milk.counter
+Restart=always
+RestartSec=3
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

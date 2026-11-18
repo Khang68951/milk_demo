@@ -1,0 +1,15 @@
+[
+  {"id": "TMP-MLK-TH-01", "short": "TH Có đường", "name": "TH true MILK Sữa Tươi Tiệt Trùng Có Đường 180ml", "color": "#1f77b4"},
+  {"id": "TMP-MLK-TH-02", "short": "TH Ít đường", "name": "TH true MILK Sữa Tươi Tiệt Trùng Ít Đường 180ml (tên chờ khớp với pipeline của long)", "color": "#aec7e8"},
+  {"id": "TMP-MLK-VNM-01", "short": "VNM Không đường", "name": "Vinamilk 100% Sữa Tươi Tiệt Trùng Không Đường 180ml", "color": "#2ca02c"},
+  {"id": "TMP-MLK-VNM-02", "short": "VNM Ít đường", "name": "Vinamilk 100% Sữa Tươi Tiệt Trùng Ít Đường 180ml", "color": "#98df8a"},
+  {"id": "TMP-MLK-VNM-03", "short": "VNM Có đường", "name": "Vinamilk 100% Sữa Tươi Tiệt Trùng Có Đường 180ml", "color": "#ff7f0e"},
+  {"id": "TMP-MLK-VNM-04", "short": "VNM Sôcôla", "name": "Vinamilk 100% Sữa Tươi Tách Béo Tiệt Trùng Sôcôla Đậm Đặc 180ml", "color": "#8c564b"},
+  {"id": "TMP-MLK-VNM-05", "short": "VNM Chuối", "name": "Vinamilk 100% Sữa Tươi Tiệt Trùng Giảm Béo Chuối 180ml", "color": "#bcbd22"},
+  {"id": "TMP-MLK-VNM-06", "short": "VNM Dưa lưới", "name": "Vinamilk 100% Sữa Tươi Tách Béo Tiệt Trùng Dưa Lưới 180ml", "color": "#17becf"},
+  {"id": "TMP-MLK-VNM-07", "short": "VNM Đậu nành canxi", "name": "Vinamilk Sữa Đậu Nành Cao Canxi Ít Đường 180ml", "color": "#9467bd"},
+  {"id": "TMP-MLK-VNM-08", "short": "VNM Hạnh nhân", "name": "Vinamilk Sữa Hạt Đậu Nành Hạnh Nhân Ít Đường 180ml", "color": "#e377c2"},
+  {"id": "TMP-MLK-VNM-09", "short": "VNM Mè đen", "name": "Vinamilk Sữa Hạt Đậu Nành Mè Đen Ít Đường 180ml", "color": "#393b79"},
+  {"id": "TMP-MLK-VNM-10", "short": "VNM 9 loại hạt", "name": "Vinamilk Sữa Hạt 9 Loại Hạt Ít Đường 180ml", "color": "#637939"},
+  {"id": "UNRECOGNIZED", "short": "Không nhận ra", "name": "Thấy hộp nhưng không khớp SKU nào", "color": "#8a8f98"}
+]

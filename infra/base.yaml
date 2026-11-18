@@ -1,0 +1,102 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Milk shelf demo, storage: S3 bucket for releases, models, blurred frames and results,
+  and a DynamoDB table of captures. Kept apart from the server so the server can be
+  rebuilt without touching data.
+
+Parameters:
+  Project:
+    Type: String
+    Default: milk-demo
+  RetentionDays:
+    Type: Number
+    Default: 30
+    Description: Days to keep stored frames and results.
+
+Resources:
+  DataBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: true
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-frames
+            Status: Enabled
+            Prefix: frames/
+            ExpirationInDays: !Ref RetentionDays
+          - Id: expire-results
+            Status: Enabled
+            Prefix: results/
+            ExpirationInDays: !Ref RetentionDays
+          - Id: expire-old-releases
+            Status: Enabled
+            Prefix: releases/2
+            ExpirationInDays: 30
+          - Id: abort-incomplete-uploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      Tags:
+        - Key: project
+          Value: !Ref Project
+
+  DataBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref DataBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyPlainHttp
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt DataBucket.Arn
+              - !Sub "${DataBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+  CapturesTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: camera_id
+          AttributeType: S
+        - AttributeName: capture_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: camera_id
+          KeyType: HASH
+        - AttributeName: capture_id
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+      Tags:
+        - Key: project
+          Value: !Ref Project
+
+Outputs:
+  BucketName:
+    Value: !Ref DataBucket
+  TableName:
+    Value: !Ref CapturesTable

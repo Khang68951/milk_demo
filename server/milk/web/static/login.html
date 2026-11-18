@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Đăng nhập · Đếm sữa trên kệ</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="login-page">
+  <form class="login-card" id="login-form">
+    <span class="logo" aria-hidden="true"></span>
+    <h1>Đếm sữa trên kệ</h1>
+    <p>Demo nội bộ của nhóm COS40005.</p>
+    <label for="password">Mật khẩu</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+    <button class="btn" type="submit">Đăng nhập</button>
+    <p class="error" id="error" role="alert"></p>
+  </form>
+  <script>
+    document.getElementById("login-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const error = document.getElementById("error");
+      error.textContent = "";
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: document.getElementById("password").value }),
+      });
+      if (response.ok) { location.href = "/"; return; }
+      error.textContent = response.status === 401 ? "Sai mật khẩu." : `Không đăng nhập được (HTTP ${response.status}).`;
+    });
+  </script>
+</body>
+</html>

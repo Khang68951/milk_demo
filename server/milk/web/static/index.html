@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Đếm sữa trên kệ</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"></span>
+      <div>
+        <div class="title">Đếm sữa trên kệ</div>
+        <div class="sub" id="where">—</div>
+      </div>
+    </div>
+    <div class="chips">
+      <span class="chip" id="chip-stream"><i></i><span>Luồng: đang kiểm tra…</span></span>
+      <span class="chip" id="chip-latency"><span>Độ trễ: —</span></span>
+      <span class="chip" id="chip-rate"><span>— khung/phút</span></span>
+      <span class="chip" id="chip-model"><span>Model: —</span></span>
+    </div>
+    <div class="actions">
+      <a class="btn" id="export-link" href="#" download>Xuất CV Output (CSV)</a>
+      <button class="btn ghost" id="logout" type="button">Đăng xuất</button>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="panel video" aria-label="Khung hình mới nhất">
+      <div class="canvas-wrap">
+        <canvas id="frame" width="1920" height="1080"></canvas>
+        <div class="empty" id="empty">Chưa có khung hình. Đang chờ luồng từ camera…</div>
+      </div>
+      <div class="caption" id="caption">—</div>
+    </section>
+
+    <aside class="panel counts" aria-label="Số hộp trên kệ">
+      <div class="total">
+        <div class="label">Tổng số hộp trên kệ</div>
+        <div class="value" id="total">0</div>
+        <div class="small" id="flagged">—</div>
+      </div>
+      <ul class="sku-list" id="sku-list"></ul>
+      <p class="note">Số lớn: trung vị 3 khung gần nhất. Khung viền đỏ nét đứt: độ tin cậy dưới 0,70, cần người duyệt.</p>
+    </aside>
+
+    <section class="panel chart">
+      <h3>Tổng số hộp, 10 phút gần nhất</h3>
+      <svg id="history" viewBox="0 0 600 160" preserveAspectRatio="none" role="img" aria-label="Biểu đồ tổng số hộp"></svg>
+    </section>
+
+    <section class="panel events">
+      <h3>Số đếm thay đổi</h3>
+      <ol id="events" class="events-list"></ol>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

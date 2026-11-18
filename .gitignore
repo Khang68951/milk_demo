@@ -1,0 +1,38 @@
+# Secrets and personal files: never commit
+iam.md
+*.pem
+*.key
+*.crt
+.env
+*.env
+!*.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Build output
+dist/
+*.tar.gz
+
+# Models, store images and video stay in S3, not in this public repo
+models/
+data/
+*.pt
+*.onnx
+*.mp4
+*.mov
+*.jpg
+*.jpeg
+*.png
+!server/milk/web/static/*.png
+
+# Editors and OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

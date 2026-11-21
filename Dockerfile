@@ -19,7 +19,8 @@ RUN apt-get update \
 
 WORKDIR /app
 COPY server/requirements.txt server/requirements.txt
-RUN pip install --upgrade pip \
+# The base image ships setuptools 70.3.0 (CVE-2025-47273, HIGH); the scan in CI found it.
+RUN pip install --upgrade pip "setuptools>=78.1.1" \
  && pip install -r server/requirements.txt
 
 COPY server/milk server/milk

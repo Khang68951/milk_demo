@@ -4,6 +4,7 @@
 installed. `long` wraps the team's YOLO26s + DINOv2-S + LanceDB pipeline from Long's
 GPU machine; its adapter is added once that code is copied from there.
 """
+
 from __future__ import annotations
 
 from typing import Protocol

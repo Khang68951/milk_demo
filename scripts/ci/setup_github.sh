@@ -12,7 +12,8 @@
 #   AWS_ACCOUNT_ID  <- aws sts get-caller-identity (with the key above)
 #   owner/repo      <- GITHUB_REPO_URL
 #   PROD_REVIEWER   <- the logged-in GitHub user
-#   ALERT_EMAIL     <- git config user.email (empty: a warning; set repo variable ALERT_EMAIL later)
+#   ALERT_EMAIL     <- $ALERT_EMAIL, else git config user.email unless it is a GitHub noreply
+#                      address (empty: a warning; set repo variable ALERT_EMAIL later)
 #
 # It sets:
 #   repo secrets    AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY (sent on stdin, never printed)
@@ -78,7 +79,9 @@ AWS_ACCOUNT_ID=$(env -u AWS_PROFILE -u AWS_SESSION_TOKEN AWS_ACCESS_KEY_ID="$AWS
   --query Account --output text) || fail "AWS rejected the access key in $ENV_FILE"
 PROD_REVIEWER=$(gh api user -q .login)
 REVIEWER_ID=$(gh api user -q .id)
-ALERT_EMAIL=$(git config user.email || true)
+# ALERT_EMAIL in the environment wins; a GitHub noreply address cannot receive mail, so skip it.
+ALERT_EMAIL="${ALERT_EMAIL-$(git config user.email || true)}"
+case "$ALERT_EMAIL" in *@users.noreply.github.com) ALERT_EMAIL="" ;; esac
 log "repository $REPO, AWS account $AWS_ACCOUNT_ID, production reviewer $PROD_REVIEWER"
 
 log "repo secrets"

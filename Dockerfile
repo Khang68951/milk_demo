@@ -19,9 +19,13 @@ RUN apt-get update \
 
 WORKDIR /app
 COPY server/requirements.txt server/requirements.txt
-# The base image ships setuptools 70.3.0 (CVE-2025-47273, HIGH); the scan in CI found it.
-RUN pip install --upgrade pip "setuptools>=78.1.1" \
- && pip install -r server/requirements.txt
+# pip and setuptools are only needed to install; remove them so the running image does not
+# carry them. (pip vendors part of setuptools 70.3.0, which the image scan flags as
+# CVE-2025-47273 through pip/_vendor/bom.cdx.json.)
+RUN pip install -r server/requirements.txt \
+ && (pip uninstall -y setuptools wheel || true) \
+ && python -m pip uninstall -y pip \
+ && python -c "import fastapi, uvicorn, boto3, numpy"
 
 COPY server/milk server/milk
 RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin milk

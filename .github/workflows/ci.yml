@@ -111,3 +111,12 @@ jobs:
             aquasec/trivy:0.58.1 image \
             --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed --no-progress \
             milk:ci
+      - name: Where the vulnerable packages are (only when the scan failed)
+        if: failure()
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$HOME/.cache/trivy:/root/.cache/trivy" \
+            aquasec/trivy:0.58.1 image --format json --severity CRITICAL,HIGH --ignore-unfixed --no-progress \
+            --skip-db-update milk:ci |
+            jq -r '.Results[] | .Vulnerabilities[]? | "\(.PkgName) \(.InstalledVersion) \(.VulnerabilityID) at \(.PkgPath // "?")"'

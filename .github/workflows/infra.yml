@@ -24,8 +24,12 @@ env:
 jobs:
   preview:
     name: change-set preview
-    # Pull requests from forks get no secrets, so they cannot preview.
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    # Pull requests from forks get no secrets, so they cannot preview; nor can any PR before
+    # scripts/ci/setup_github.sh has run (it sets the AWS_ACCOUNT_ID variable with the secrets).
+    if: >-
+      github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && vars.AWS_ACCOUNT_ID != ''
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
